@@ -1,0 +1,285 @@
+FOUNDATIONS OF MODERN MACHINE LEARNING, IIIT Hyderabad
+MODULE: CLASSIFICATION-1
+LAB-4 : Understanding Cross-Validation and Standardization
+Module Coordinator: Jashn Arora
+Section 1: Tweaking the parameters
+Let's stat the lab by writing knn code on a cancer detection dataset
+
+
+[ ]
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import sklearn
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import datasets
+
+[ ]
+cancer = datasets.load_breast_cancer(as_frame=True)
+
+[ ]
+cancer.target_names
+array(['malignant', 'benign'], dtype='<U9')
+
+[ ]
+cancer.frame
+
+
+[ ]
+X = cancer.data
+y = cancer.target
+
+[ ]
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 17)
+Section 1.1: Changing Value of K
+Let's try to run the knn with different values of knn and compare the results
+
+
+[ ]
+neighbors = []
+scores_list = []
+
+for k in range(1, 25):
+    neighbors.append(k)
+    knn = KNeighborsClassifier(n_neighbors = k)
+    knn.fit(X_train,y_train)
+    scores = knn.score(X_test,y_test)
+    scores_list.append(scores)
+
+[ ]
+Accuracy = [x*100 for x in scores_list]
+# plot Accuracy versus k
+plt.figure(figsize = (10, 6))
+plt.plot(neighbors, Accuracy)
+plt.xlim([0, 25])
+plt.xlabel('Number of neighbors')
+plt.ylabel('Accuracy in %')
+plt.show()
+
+
+[ ]
+# determining the best k
+max_acc = max(Accuracy)
+optimal_ks = [neighbors[i] for i, j in enumerate(Accuracy) if j == max_acc]
+print(max_acc)
+print(optimal_ks)
+93.61702127659575
+[10, 12, 13, 14, 22, 24]
+In this case, we see that the ideal number of neighbours can take any one of the values in the list [10,12,13,14,22,24].
+However, this only tells us the effectiveness of the KNN classifier only if we have the same train-test split considered above. It still does not tell us how well the algorithm would perform if the test set were different. The results would have been different if we had split the data differently.
+
+AUC-ROC Curve
+The AUC - ROC curve is a performance measurement for classification problems at various threshold settings. ROC is a probability curve and AUC represents the degree or measure of separability. It tells how much the model is capable of distinguishing between classes.
+The diagonal in the curve divides the ROC space. Points above the diagonal represent good classification results (better than random); points below the line represent bad results (worse than random).
+Higher the AUC, the better the model is at predicting 0 classes as 0 and 1 classes as 1.
+
+The ROC curve is plotted with the TPR (True Positive Rate) on the y-axis, and the FPR (False Positive Rate) on the x-axis.
+
+
+[ ]
+## AUC-ROC
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
+import matplotlib.pyplot as plt
+
+def plot_roc(y_test,predicted):
+  y_scores = predicted
+  fpr, tpr, threshold = roc_curve(y_test, y_scores)
+  roc_auc = auc(fpr, tpr)
+  plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
+  plt.legend(loc = 'lower right')
+  plt.plot([0, 1], [0, 1],'r--')
+  plt.xlim([0, 1])
+  plt.ylim([0, 1])
+  plt.ylabel('True Positive Rate')
+  plt.xlabel('False Positive Rate')
+  plt.title('Receiver Operating Characteristic')
+  plt.show()
+
+[ ]
+knn = KNeighborsClassifier(n_neighbors = 10)
+knn.fit(X_train,y_train)
+predictions = knn.predict(X_test)
+plot_roc(y_test,predictions)
+
+Section 1.2: KNN using a different train-test split
+
+[ ]
+## Changing the random_state value here so that data is split differently
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 1089)
+
+[ ]
+neighbors = []
+scores_list = []
+
+for k in range(1, 25):
+    neighbors.append(k)
+    knn = KNeighborsClassifier(n_neighbors = k)
+    knn.fit(X_train,y_train)
+    scores = knn.score(X_test,y_test)
+    scores_list.append(scores)
+
+[ ]
+Accuracy = [x*100 for x in scores_list]
+# plot Accuracy versus k
+plt.figure(figsize = (10, 6))
+plt.plot(neighbors, Accuracy)
+plt.xlim([0, 25])
+plt.xlabel('Number of neighbors')
+plt.ylabel('Accuracy in %')
+plt.show()
+
+
+[ ]
+# determining the best k
+max_acc = max(Accuracy)
+optimal_ks = [neighbors[i] for i, j in enumerate(Accuracy) if j == max_acc]
+print(max_acc)
+print(optimal_ks)
+94.14893617021278
+[5, 7, 8]
+As you can see, the model gives different results when we split the data differently. Here, it suggests that the ideal k value is 5, 7 or 8.
+
+Section 2: Cross Validation
+As you saw in the above two cases with different train-test splits, there is a risk of overfitting on the test set because the parameters can be tweaked until the estimator performs optimally. This way, knowledge about the test set can “leak” into the model and evaluation metrics no longer report on generalization performance.
+
+Cross Validation is an important technique in Machine Learning to analyze the performance of a model on unseen data.
+
+There are different kinds of cross-validation methods: exhaustive and non-exhaustive.
+Exhaustive cross-validation methods are cross-validation methods which learn and test on all possible ways to divide the original sample into a training and a validation set. Non-exhaustive cross validation methods do not compute all ways of splitting the original sample.
+
+One of the most commonly cross-validation methods is K-Fold Cross validation. The procedure for K-Fold Cross Validation is as follows:
+
+Split the dataset into k groups (typically without shuffling)
+For each unique group:
+a. Take the group as a hold out or test data set
+b. Take the remaining groups as a training data set
+c. Fit a model on the training set and evaluate it on the test set
+d. Retain the evaluation score and discard the model
+Summarize the performance of the model using the mean of model evaluation scores over all the folds.
+Image source: https://scikit-learn.org/stable/modules/cross_validation.html
+Screenshot from 2021-12-13 09-37-46.png
+
+
+[ ]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.33, random_state = 17)
+
+[ ]
+from sklearn.model_selection import KFold
+from statistics import mean
+kf = KFold(n_splits=10)
+cv_scores = []
+neighbors = []
+for k in range(1,25):
+  knn = KNeighborsClassifier(n_neighbors = k)
+  neighbors.append(k)
+  acclist = []
+  for train_index, test_index in kf.split(X_train, y_train):
+    x_train_fold, x_test_fold = X_train.iloc[train_index], X_train.iloc[test_index]
+    y_train_fold, y_test_fold = y_train.iloc[train_index], y_train.iloc[test_index]
+    knn.fit(x_train_fold, y_train_fold)
+    acclist.append(knn.score(x_test_fold, y_test_fold))
+  cv_scores.append(mean(acclist))
+
+[ ]
+Accuracy = [x*100 for x in cv_scores]
+
+# plot misclassification error versus k
+plt.figure(figsize = (10, 6))
+plt.plot(neighbors, Accuracy)
+plt.xlabel('Number of neighbors')
+plt.ylabel('Mean Cross-validation accuracy in %')
+plt.show()
+
+
+[ ]
+# determining the best k
+max_acc = max(Accuracy)
+optimal_ks = [neighbors[i] for i, j in enumerate(Accuracy) if j == max_acc]
+print(optimal_ks)
+[10, 12]
+Note that the accuracy in the above case is not the accuracy on the test set. We plot the mean of the accuracies obtained during cross-validation, when we considered different splits of the training set.
+
+From the plot above, we can see that when the value of k is 10 or 12, our KNN model generalizes well to unseen data. Performing such cross validation gives us an idea about the parameters to choose when using a machine-learning algorithm.
+
+
+[ ]
+## TASK-1:
+## In the above case, we saw K-Fold cross validation, where we split the dataset into K consecutive folds without taking anything else into account.
+## Stratified KFold is another strategy that is commonly used, which preserves the percentage of samples for each class in the folds.
+## Implement Stratified KFold (refer Sklearn docs) and display the results you obtain
+Section 3: Standardization
+Scaling the data that we have available is a recommended pre-processing step when working with many machine learning algorithms. The scale and distribution of the data drawn from the domain may be different for each variable. Differences in the scales across input variables may increase the difficulty of the problem being modeled, and the model may suffer from poor performance during learning and sensitivity to input values resulting in higher generalization error.
+
+Standardization (also called z-score normalization) is one such scaling technique that transforms your data such that the resulting distribution has a mean of 0 and a standard deviation of 1.
+
+New (scaled) value=X−μσ
+
+
+[ ]
+X = cancer.data
+y = cancer.target
+
+[ ]
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+[ ]
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size = 0.33, random_state = 17)
+
+[ ]
+neighbors = []
+scores_list = []
+
+for k in range(1, 25):
+    neighbors.append(k)
+    knn = KNeighborsClassifier(n_neighbors = k)
+    knn.fit(X_train,y_train)
+    scores = knn.score(X_test,y_test)
+    scores_list.append(scores)
+
+[ ]
+Accuracy = [x*100 for x in scores_list]
+# plot Accuracy versus k
+plt.figure(figsize = (10, 6))
+plt.plot(neighbors, Accuracy)
+plt.xlim([0, 25])
+plt.xlabel('Number of neighbors')
+plt.ylabel('Accuracy in %')
+plt.show()
+
+
+[ ]
+# determining the best k
+max_acc = max(Accuracy)
+optimal_ks = [neighbors[i] for i, j in enumerate(Accuracy) if j == max_acc]
+print(max_acc)
+print(optimal_ks)
+96.80851063829788
+[2]
+
+[ ]
+## TASK-2:
+## Plot a confusion matrix for the classification above on the scaled data (using the optimal value of k)
+## Also print out the Precision, Recall and F1-score values
+
+[ ]
+## TASK-3:
+## Perform K-Fold Cross validation after standardizing the data. Display your results.
+
+[ ]
+## TASK-4:
+## Plot the vornoi and decision boundary diagram for the classifier from TASK-3
+Questions to Think About and Answer
+Instead of using cross-validation, we could also split our dataset into three sets- train, validation, and test set. The training proceeds on the training set, after which evaluation is done on the validation set, and when the experiment seems to be successful, final evaluation can be done on the test set.
+What do you think are the pros/cons of this method ?
+Is K-Fold cross validation an exhaustive or non-exhaustive cross validation method ? Justify your answer.
+Useful Resources for further reading
+Cross validation (scikit-learn): https://scikit-learn.org/stable/modules/cross_validation.html
+Wikipedia: https://en.wikipedia.org/wiki/Cross-validation_(statistics)
+Standardization: https://machinelearningmastery.com/standardscaler-and-minmaxscaler-transforms-in-python/
+AUC-ROC : https://en.wikipedia.org/wiki/Receiver_operating_characteristic
